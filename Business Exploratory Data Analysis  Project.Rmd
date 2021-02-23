@@ -1,0 +1,356 @@
+---
+title: "Data Analysis Project"
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, 
+                      message = FALSE, 
+                      warning = FALSE,
+                      comment = "")
+```
+
+
+
+# Student Information
+
+**Name**: Ayana Crutchfield
+**G Number**:#########
+
+
+
+```{r}
+library(tidyverse)
+library(dplyr)
+install.packages("gapminder")
+library(gapminder)
+library(ggplot2)
+employee_data <- read_rds(url('https://gmubusinessanalytics.netlify.app/data/employee_data.rds'))
+```
+
+
+### Raw Data
+
+```{r}
+
+employee_data
+
+```
+<br>
+<br>
+
+## Question 1
+**Question**: Is there correlation between an employee's living distance and leaving the company?  
+
+**Answer**: There is a correlation between living distance and leaving the company. While about 74% of employees who stayed live 11 miles or less away, about 62% of those who left do as well. On the other hand, while about 28% of employees who stayed live 11 miles or more away, almost 40% of them live more than 11 miles away.
+
+```{r}
+living_dist <- employee_data%>%group_by(left_company)%>%
+                summarise(employees = n(),
+                          avg_dist = mean(miles_from_home),
+                          min_dist = min(miles_from_home),
+                          max_dist = max(miles_from_home),
+                          percent_dist_belavg = mean(miles_from_home <=11),
+                          percent_dist_aboveavg = mean(miles_from_home>=11))
+living_dist
+```
+```{r}
+#visualization 1 - histogram
+visualization_1 <- ggplot(data = employee_data, aes(x = miles_from_home, fill = left_company)) + 
+   geom_histogram(color = "white") +
+   facet_wrap(~ left_company, nrow = 1) +
+   labs(title = "Miles from Home Based on Left the Comapny",
+           x = "Miles from Home", y = "Number of Employees")
+visualization_1
+```
+
+
+
+## Question 2
+**Question**: Does business travel have a strong impact on an employee leaving the company?
+
+**Answer**: Most employees rarely travel. About 72% of employees who stayed at the company rarely traveled, and about 66% of those who left rarely traveled. Thus, I believe that rarely traveling has an impact on an employee leaving the company, but none or frequent travel doesn’t.
+
+
+```{r}
+travel <- employee_data %>% group_by(left_company) %>%
+        #want to turn business travel values into none - 1, rarely - 2, frequently - 3
+        mutate(business_travel = as.integer(business_travel)) %>%
+        summarise(employees = n(),
+          notravel = length(which(business_travel==1)), 
+                  raretravel = length(which(business_travel==2)),
+                  freqtravel = length(which(business_travel==3)))
+travel
+#additional calculations for percentages - couldn't figure out how to calculate % 
+percent_notr_no = (138/1233)*100 #about 11% of who stayed didn't have to travel
+percent_notr_no
+percent_notr_yes = (12/237)*100 #about 5% of who left didn't have to travel
+percent_notr_yes
+percent_rare_no = (887/1233)*100 # about 72% of who stayed rarely traveled 
+percent_rare_no
+percent_rare_yes = (156/237)*100 # about 66% of who left rarely traveled. 
+percent_rare_yes
+percent_freq_no = (208/1233)*100 # about 17%  with frequent travel stayed
+percent_freq_no
+percent_freq_yes = (69/237)*100 # about 29%  with frequent travel left
+percent_freq_yes
+
+```
+
+```{r}
+#visualization 2 -  histogram #2
+visualization_2 <- ggplot(data = employee_data, aes(x = as.integer(business_travel), fill = left_company)) + 
+  geom_histogram(color = "white", bins = 10) + facet_wrap(~ left_company, nrow = 1) + labs(title = "Business Travel", x = "Business Travel in Numbers - None, Rare, Frequent", y = "Number of Employees")
+visualization_2
+
+#reflects findings. most employees whether they stayed or left rarely travel. so what is the issue for those who left?
+
+```
+
+
+
+
+## Question 3
+
+**Question**: Is there correlation between an employee's last promotion,years at the company, and leaving the company?
+
+**Answer**: For employees who have been at the company for 10 years or less and haven't received a promotion, about 37% of employees stayed and 46% left.  For employees who have been at the company for more than five years and haven't received a promotion in two or more years, about 28% of the employees stayed and about 22% left. Thus, I see that there is a weak correlation between an employee's last promotion, years at the company, and leaving the company, but being at the company for 10 years or less without receiving a promotion does not improve employee attrition.
+
+
+```
+```{r}
+```{r}
+employeepromo_yrs <- employee_data %>% group_by(left_company) %>% 
+                  summarise(n_employees = n(), #we know the min years since promotion and at company = 0
+                            maxyrs_promo = max(yrs_since_promotion),
+                            maxyrs_at_comp = max(yrs_at_company),
+                            avg_promo = mean(yrs_since_promotion),
+                            avg_yrsat = mean(yrs_at_company),
+                            nopromo = mean(yrs_since_promotion==0 & yrs_at_company <=10),
+                            promo_more_thanavg = mean(yrs_since_promotion>=2 & yrs_at_company >=5))
+employeepromo_yrs
+```
+```
+```
+```
+```{r}
+```{r}
+#visualization 3 - boxplot
+visualization_3 <- ggplot(data=employee_data, aes(x = yrs_since_promotion, y = yrs_at_company)) + geom_boxplot() +
+labs(title="Comparing Years Since Promotion and Years at Company")
+
+visualization_3
+```
+
+
+```
+```
+## Question 4
+**Question**: Is there correlation between an employee's number of previous jobs and leaving the company?
+
+**Answer**: There is a strong correlation between an employee's number of previous jobs and leaving the company. About 60% of employees who worked for three or more companies stayed, while about 94% left. 
+```
+```{r}
+```{r}
+prevcomp <- employee_data %>%group_by(left_company)%>% 
+                summarise(employees = n(),
+                        avg_prev_comp = mean(previous_companies),
+                          min_prev = min(previous_companies),
+                          max_prev = max(previous_companies),
+                          percent_3plus = mean(previous_companies>= 3))# % of folks who have worked for the min average of ~3 previous # of companies. 
+prevcomp
+```
+```
+```
+```{r}
+#visualization 4 - bar plot
+visualization_4 <- ggplot(data = employee_data, mapping = aes(x = previous_companies, fill = left_company)) + geom_bar() + labs(title = "Previous Companies")
+visualization_4
+#shows that most people who stayed had 2-3 previous jobs; most who left had 5-6 previous jobs.
+```
+
+## Question 5
+**Question**:Is there correlation between an employee's satisfaction with their job, number of previous jobs, and leaving the company?
+
+**Answer**: Although the percent of employees that left is higher than the percent of those who stayed in this analysis, the resulting data frame shows there is no strong correlation between number of previous companies, job satisfaction, and an employee leaving a job. Based on the general numbers based on satisfaction, most employees stayed and most are very highly satisfied with their jobs. 
+
+```{r}
+```{r}
+emp_satisfaction <- employee_data %>% group_by(left_company) %>%
+#want to turn job satisfaction values into low - 1, medium - 2, high - 3, very high - 4 
+        mutate(job_satisfaction = as.integer(job_satisfaction)) %>%
+        summarise(employees = n(),
+          lowsat = length(which(job_satisfaction==1)), 
+          medsat = length(which(job_satisfaction==2)),
+          hisat = length(which(job_satisfaction==3)),
+          vhsat = length(which(job_satisfaction == 4)),
+          #we know the avg # of previous companies is about >=3 so,
+          prev3comp_lowsat = mean(previous_companies>= 3 & job_satisfaction==1),
+          prev3comp_medsat = mean(previous_companies>= 3 & job_satisfaction==2),
+          prev3comp_hisat = mean(previous_companies>= 3 & job_satisfaction==3),
+          prev3comp_vhsat = mean(previous_companies>= 3 & job_satisfaction==4))
+emp_satisfaction
+```
+```
+```{r}
+```{r}
+#visualization 5 - jittered scatter plot (this is my fourth visualization based on the requirements)
+visualization_5 <- ggplot(data= employee_data, mapping = aes(x= job_satisfaction, y = previous_companies, color = job_satisfaction)) + geom_jitter() + facet_wrap(~left_company, nrow = 1) + labs(title = "Job Satisfaction vs. Previous Companies", x= "Job Satisfaction", y = "Number of Previous Companies")
+visualization_5
+
+```
+
+
+## Question 6
+**Question**: Is there correlation between an employee's performance rating and leaving the company?
+
+**Answer**: Of the 237 employees who left, about 44% (105) of them received "Meets Expectations" ratings, while about 36% of employees who stayed received "Meets Expectations" ratings. Since that rating seems to be an average rating, there is a chance that the 105 employees who left may have felt like they didn't have much room to grow at the company, found the work to be too easy, or generally lack motivation. Therefore, (and to be more specific) I believe there is a correlation between average/"Meets Expectations" ratings and an employee leaving the company.
+
+```{r}
+```{r}
+perf_rate <- employee_data %>% group_by(left_company) %>%
+#want to turn performance rating values into not effective - 1, minimally effective - 2, meets expectations - 3, exceeds expectations - 4 exceptional - 5
+        mutate(performance_rating = as.integer(performance_rating)) %>%
+        summarise(employees = n(),
+          rated1 = length(which(performance_rating==1)), 
+          rated2 = length(which(performance_rating==2)),
+          rated3 = length(which(performance_rating==3)),
+          rated4 = length(which(performance_rating == 4)),
+          rated5 = length(which(performance_rating == 5)),
+          perc_1 = mean(performance_rating==1),
+          perc_2 = mean(performance_rating==2),
+          perc_3 = mean(performance_rating==3),
+          perc_4 = mean(performance_rating==4),
+          perc_5 = mean(performance_rating==5))
+
+perf_rate
+```
+```
+```{r}
+```{r}
+#visualization 6 - bar plot 
+visualization_6 <- ggplot(data= employee_data, mapping = aes(x= as.integer(performance_rating), fill= left_company)) + geom_bar() + facet_wrap(~left_company, nrow = 1) + labs(title = "Performance Rating", x = "Performance Rating - Numbered")
+visualization_6 #reflects the perf_rate date frame
+```
+
+
+```
+```
+## Question 7
+**Question**: Is there correlation between an employee's marital status, salary, and leaving the company?
+
+**Answer**: I observed the following about single, married, and divorced employees respectively: 
+    - About 11% of employees who stayed make the maximum average or more, while about 33% of the employees who left make the minimum average salary or less
+    - About 19% of employees who stayed make the maximum average or more, while about 25% of employees who left make the minimum average or less. 
+    - About 9% of divorced employees who stayed make maximum average or more and about 7% who left make the minimum average salary or less. 
+It seems that single and married employees are more inclined to leave when they make less than or equal to the minimum average salary. Thus (to be more specific), there is a correlation between an employee's marital status (single or married), salary, and leaving the company.
+
+```{r}
+marital_status <- employee_data %>% group_by(left_company) %>%
+#want to turn marital status values into single - 1, married - 2, divorced - 3
+        mutate(marital_status = as.integer(marital_status)) %>%
+        summarise(employees = n(),
+          minsalary = min(salary),
+          maxsalary = max(salary),
+          avgsalary = mean(salary),
+          sin1 = length(which(marital_status==1)), 
+          mar2 = length(which(marital_status==2)),
+          div3 = length(which(marital_status==3)), #most who stayed are married, most who left are single. 
+          #testing % of single, married, and divorced employees who make above and below avg salaries found above
+          perc_single_abvavg = mean(marital_status==1 & salary >= 97430.52), 
+          perc_single_belavg = mean(marital_status==1 & salary <= 76625.52), 
+          perc_married_abvavg = mean(marital_status==2 & salary >= 97430.52),
+          perc_married_belavg = mean(marital_status==2 & salary <= 76625.52),
+          perc_divorced_abvavg = mean(marital_status==3 & salary >= 97430.52),
+          perc_divorced_belavg = mean(marital_status==3 & salary <= 76625.52))
+marital_status
+```
+```
+```{r}
+```{r}
+#visualization 7 - violin plot
+visualization_7 <- ggplot(data= employee_data, mapping = aes(x= marital_status, y = salary, color = marital_status)) + geom_violin() + geom_jitter()+ facet_wrap(~left_company, nrow = 1) + labs(title = "Marital Status vs. Status", x ="Marital Status", y = "Salary")
+visualization_7
+
+#shows most who stayed and are married make between $75K and $125K. shows that most who left (across all marital status) make below $100K
+```
+```
+```
+## Question 8
+**Question**:Is there correlation between an employee's department, work hours, and leaving the company?
+
+**Answer**:My analysis shows that employees that left the company work more weekly hours on average compared to those who stayed. The following are the percentages of Marketing, Sales, Research, Product Development, IT and Analytics, and Finance and Operations, respectively, with regard to working 48 weekly hours or less of those who stayed and 58 weekly hours or more for those that left:
+- 9% vs. 11% 
+- 8% vs.22% 
+- 12% vs. 2% 
+- 6% vs. 14% 
+- 14% vs. 9% 
+- 3% vs 9% 
+```{r}
+dept_hrs <- employee_data %>% group_by(left_company) %>%
+#want to turn department values into marketing - 1, sales - 2, research - 3,product development - 4, IT and analytics - 5, and finance and operations - 6
+        mutate(department = as.integer(department)) %>%
+        summarise(employees = n(),
+          minhrs = min(weekly_hours),
+          maxhrs = max(weekly_hours),
+          avghrs = mean(weekly_hours),
+          mktg1 = length(which(department==1)), 
+          sales2 = length(which(department==2)),
+          rsrch3 = length(which(department==3)),
+          proddev4 = length(which(department == 4)),
+          it_anltcs5 = length(which(department == 5)),
+          fin_op6 = length(which(department == 6)),
+          dept_m1_min = mean(department==1 & weekly_hours<=48),
+          dept_m1_max = mean(department==1 & weekly_hours>=58),
+          dept_s2_min = mean(department==2 & weekly_hours<=48),
+          dept_s2_max = mean(department==2 & weekly_hours>=58),
+          dept_r3_min = mean(department==3 & weekly_hours<=48),
+          dept_r3_max = mean(department==3 & weekly_hours>=58),
+          dept_pd4_min = mean(department==4 & weekly_hours<=48),
+          dept_pd4_max = mean(department==4 & weekly_hours>=58),
+          dept_ita5_min = mean(department==5 & weekly_hours<=48),
+          dept_ita5_max = mean(department==5 & weekly_hours>=58),
+          dept_fo6_min = mean(department == 6 & weekly_hours<=48),
+          dept_fo6_max = mean(department == 6 & weekly_hours>=58))
+dept_hrs
+```
+```
+```{r}
+```{r}
+#visualization 8 - jittered scatter plot 
+visualization_8 <- ggplot(data= employee_data, mapping = aes(x= as.integer(department), y = weekly_hours, color = department)) + geom_jitter() + facet_wrap(~left_company, nrow = 2) + labs(title = "Department vs. Weekly Hours", x = "Department", y = "Weekly Hours")
+visualization_8
+
+#shows most who left worked over 50 weekly hours across all departments. Most who stayed worked under 50 hours across all departments. What is the difference between these staff members? Next steps would be to consider job level. Are staff members who are merely associates in these departments working over 50 weekly hours and leaving the company or are employees across all job levels experiencing it?  
+```
+
+```
+```
+
+# Summary of Results
+
+## Executive Summary
+
+Recently,  I was approached by Company X, a U.S. based product company, to review their most recent company employee data and observe why their employees are leaving for other opportunities. This problem can put Company X at risk for losing more employees and even ruin their reputation as a company, so solving this problem truly allows them to better understand their employees and improve all-around as an employer.  At the time of my analysis, 237 employees (out of 1,470 employees) had left Company X; 237 is a ridiculous amount of employees lost and that needs to change. The goal of my analysis was to help Company X lower their attrition rate. 
+
+To help Company X figure out why they are losing employees, I formed a total of eight questions relating to employee living distance, years since last promotion and years at the company, number of previous jobs and job satisfaction, performance rating, marital status and salary, and department and hours worked. In order to form these questions, I asked myself what would be important to me if I was an employee of Company X. First, how far one has to travel to and from work and the opportunities for promotion or the lack thereof (depending on time spent at the company) can potentially impact the motivation to do one's job. Second, the number of previous jobs an employee had can prove that they lack experience, have a lot of experience, or simply cannot keep a job. Third, how satisfied a person is with their job has a heavy impact on whether or not they stay, and one's performance rating may even have an impact on how they interact with management and coworkers. Next, if an employee is single, married, or divorced and if they have a low or high salary, this can drive one to stay at their current job or leave. Lastly, depending on the department, some employees may be under-, moderately-, or over-worked. This can keep or drive an employee away from their current job, affect employee morale, and potentially affect their health. 
+
+
+As I analyzed Company X’s data, I made a lot of observations that surprised me. I expected more employees who live further away to leave, but it turned out that most that stayed lived less than the average distance away from Company X. Knowing how far your employees live can help in determining how reliable they can be. One could ask, “are the employees who live further away likely to make more of an effort to get to work on time than those who live closer?” I also expected that there would be a high percentage of employees who left that had to travel frequently, but I was wrong. Most employees who travel rarely, left Company X. Establishing levels of travel is important for a business not only with regard to keeping employees, but also hiring them. Some people don’t mind traveling often for work, but most do. When observing promotions and employee years at Company X, I was surprised to see that the average years since being promoted was about two years for employees that stayed and left. However, I wasn’t surprised to see that most who stayed had been at the company longer than those who left (seven vs. five years). 
+
+Assessing the correlation between years since promotion and years spent at said company can help a business establish incentives for or even contribute to assessing employees. When it came down to testing the relationship between an employee’s number of previous jobs and whether or not they left Company X, I was surprised and confused as to why almost 94% of employees who left had three or more previous jobs. To further understand this, I considered employee satisfaction in addition. I was surprised to observe a higher percentage of employees who left Company X in all satisfaction categories with three or more previous jobs. I believe this aspect of my analysis is important to the future hiring process and will help Company X to decide what kind of employees they deem hirable and reliable (based on the number of previous jobs). Prior to my analysis of employee performance ratings, I predicted that there would be a high percentage of employees who left and received "Not Effective" or "Minimally Effective" ratings, and that maybe those who weren't performing well may have poor relationships with management. I was surprised to see that most employees were given the presumed average rating of “Meets Expectations.” I believe that performance ratings strongly impact employee morale. I also found it interesting that most of the employees at Company X are married, but that most who left are single. It is important for a company to favor all employees, whether single, married, or divorced. I believe that in order for a company to remain credible and run a tight ship, it is also very important for them to thoroughly establish a "weekly hours expectation" per department. I was surprised to see that Company X has such a high number of employees in the IT and Analytics and Research departments, and surprised to see that a higher percentage of employees in those departments work 48 weekly hours or less (12 and 14% vs 2 and 9% for those who work 58 hours or more).
+
+
+Now that my analysis is complete, I have several recommendations for Company X. Although the company cannot help where an employee lives, the company can help where it is located. According to the living_dist data frame, about 74% of employees who stayed live 11 miles or less away, and about 62% of those who left do as well. On the other hand, while about 28% of employees who stayed live 11 miles or more away, almost 40% of them who left live more than 11 miles away as well. If Company X is not located in a main part of town or is in an overly congested area, I recommend that they relocate. Being inconveniently located may not only contribute to the decline in employees, but also deter other potential hires. As far as business travel goes, most employees stayed at Company X regardless of if they never, rarely, or frequently traveled. However, when I calculated the percentage of those who stayed or left at levels of travel, I saw low percentages in the never travel (11% stayed and 5% left) and frequent travel  (17% stayed and 29% left) levels, but higher percentages in the rare travel level (72% stayed and 66% left). Because more employees who left rarely traveled than not at all or frequently, I recommend that the company assess whether or not employees are satisfied/dissatisfied with their determined level of travel. I also recommend that they look into how they gauge their levels of travel (e.g. how many trips does it take for an employer to consider that their employee has to travel rarely or frequently). My analysis of the employeepromo_yrs data frame shows that for employees who have been at the company for 10 years or less and haven't received a promotion, about 37% stayed and 46% left. Meaning, being at the company for a shorter amount of time without receiving a promotion does drive employees away but not a great majority. My analysis also shows that for employees who have been at the company for more than five years (about the average of yrs_at_company) and haven't received a promotion in two or more years (about the average yrs_since_promotion), about 28% of the employees stayed and about 22% left. This analysis further concludes that there is a weak correlation between an employee's last promotion, years at the company, and leaving the company. I do not believe this has a heavy impact on losing employees, but there is room for improvement on the promotion front and guidelines pertaining to promotions. 
+
+I decided to analyze the percent of previous companies based on the minimum average of previous companies an employee worked for (about three) in the prev_comp data frame. This analysis showed that about 60% of employees who worked for three or more companies stayed, while about 94% left. This is not a good look for this Company X. The next steps would be to see if job satisfaction impacts this aspect even more, so to help out Company X, I covered it in my next analysis. I saw that although the percent of employees that left is higher than the percent of those who stayed, the emp_satisfaction data frame shows there is no strong correlation between number of previous companies, job satisfaction, and an employee leaving Company X. In Visualization 5, I observed that most employees who stayed were highly or very highly satisfied with their jobs and had less than four previous jobs. I also observed that although most employees that left had four or more previous jobs, there are some who stayed and had four or more previous jobs as well. Therefore, I recommend that Company X take a look into the reasons as to why some employees had four or more previous jobs. As I mentioned, the number of previous jobs an employee has can prove that they lack experience, have a lot of experience, or simply cannot keep a job.  One might even ask “is this all due to dissatisfaction with a previous job, an employee seeking to have multiple job experiences, or an employee being fired or laid off?”
+
+As far as employee performance rating goes, I recommend that Company X evaluate how employees feel about the work they are assigned and further develop what they observe when rating an employee based on their performance. Based on the perf_rate data frame and the visulization_6 bar plot, I observed that most employees who stayed received “Meets Expectations” and “Exceeds Expectations” ratings, while most who left received “Meets Expectations” ratings. There is no reason most staff is receiving what I believe is an average rating (“Meets Expectations”). Those who left may have felt like they didn't have much room to grow at the company, found the work to be too easy, or generally lacked motivation. I recommend that Company X revisit their salary budgets and take raises/bonuses into consideration for all types of employees, especially those who are single or married. Based on my initial observation of the marital_status data frame, I saw that more married employees stayed (589) and more single employees left (120). The average salary of employees who stayed is \$97,430.52 and \$76,625.56 for those who left - a \$20,804.96 difference. To test the correlation between an employee's marital status, salary, and leaving the company, I tested the average salary of employees who stayed and for those who left (\$97,430.52 and \$76,625.56). I observed that single and married employees are more inclined to leave when they make less than or equal to the minimum average salary, compared to divorced employees where there isn't much of a difference. About 33% of single employees that left make the minimum average salary or less in comparison to about 11% of single employees who stayed and make the maximum average salary or more. About 19% of married employees who stayed make the maximum average or more, while about 25% of married employees who left make the minimum average or less. Although divorced employees make up the smaller portions of employees who stayed and left (294 vs 33), about 9% who stayed make maximum average or more and about 7% who left make the minimum average salary or less. The visualization_7 violin plot shows that most  employees per each marital status who stayed make between about \$75,000 to \$125,000, while most who left make below \$50,000 and no more than \$100,000. 
+
+In the dept_hrs data frame, my analysis shows that employees that left Company X work more weekly hours on average compared to those who stayed. To further understand this, I decided to find the percentage of employees who work 48 weekly hours or less and 58 weekly hours or more. In the Marketing department, about 9% of those who stayed work 48 hours or less, while about 11% who left worked 58 hours or more. In the Sales department, about 8% of those who stayed work 48 hours or less while about 22% who left worked 58 hours or more. In the Research department, about 12% of those who stayed work 48 hours or less while about 2% who left worked 58 hours or more. In the Product Development department, about 6% of those who stayed work 48 hours or less  while about 14% who left worked 58 hours or more. In the IT and Analytics department, about 14% of those who stayed work 48 hours or less while about 9% who left worked 58 hours or more (0% work 48 or less). In the Finance and Operations department, about 3% of those who stayed work 48 hours or less while about 9% who left worked 58 hours or more. With that being said, there is a correlation between an employee's department, work hours, and leaving the company. The jittered scatter plot in visualization_8 supports my aforementioned statements and further shows that most who left worked over 50 weekly hours across all departments; most who stayed worked under 50 hours across all departments. A typical work week consists of 40 hours to begin with, so I recommend that Company X should assess why employees in the Marketing, Sales, Product Development, and Finance and Operations departments are working 58 or more weekly hours. Furthermore, they need to observe the job level of these employees who are working 58 or more weekly hours within each department (whether they stayed or left) to dive deeper into the issue. 
+
+
+Overall, Company X is doing well but they have a lot to improve. A company should work as hard to keep their employees as hard as the employees work to keep their jobs. 
+
+
+
