@@ -1,0 +1,423 @@
+---
+title: "Machine Learning Project"
+---
+
+
+**Your Name**: Ayana Crutchfield
+**Your G Number**: G00885096
+
+
+
+```{r warning = FALSE, message = FALSE}
+# Suppress dplyr summarise grouping warning messages
+options(dplyr.summarise.inform = FALSE)
+
+## Add R libraries here
+library(tidyverse)
+library(tidymodels)
+library(vip) 
+library(discrim)
+library(klaR)
+library(htmltools)
+# Load the dataset
+telecom_df <- read_rds(url('https://gmubusinessanalytics.netlify.app/data/telecom_df.rds'))
+
+```
+
+
+
+# Data Analysis
+
+# Question 1
+
+**Question**: Is there a correlation between canceled service, months with company, and monthly charges?
+
+**Answer**: Based on the average months with the company, customers who canceled their service stayed with the company for about 18 months while those who didn't cancel have been using services for about 39 months. Of the customers that used the company's services for 17 months or less, about 27% of customers who canceled paid \$82 or more while 41% of those who canceled paid \$82 or less (about 5% and 23% stayed respectively). Of the customers that used the company's services for 38 months or more, about 15% of customers who canceled paid \$82 or more while about 3% of those who canceled paid \$82 or less (about 36% and 16% stayed respectively). Thus, there is a weak correlation between canceled service, months with company, and monthly charges.
+
+```{r}
+months_wplus_cost <- telecom_df%>%group_by(canceled_service)%>%
+                summarise(customers = n(),
+                          avg_m_w_comp = mean(months_with_company), #canceled ~ 18 months, didn't ~ 39 months
+                          avg_m_charges = mean(monthly_charges), #people who canceled or didn't pay about the same avg monthly charge of $82
+                          max_com = max(months_with_company), #min = 1
+                          max_charge = max(monthly_charges), #min = $44 and $43
+                          #percent of customers  who pay >= avg charges and <= minimum avg months with company
+                          per_minavg_1 = mean(months_with_company <= 18 & monthly_charges >= 82), 
+                          #% customers who pay <= avg charges and <= minimum avg months with company
+                          per_minavg_2 = mean(months_with_company <= 18 & monthly_charges <= 82), 
+                          #percent of customers  who pay >= avg charges and >= max avg months with company
+                          per_maxavg_1 = mean(months_with_company >= 39 & monthly_charges >=82),
+                          #% customers who pay <= avg charges and >= max avg months with company
+                          per_maxavg_2= mean(months_with_company >= 39 & monthly_charges <=82),
+                          )
+months_wplus_cost
+
+
+```
+
+```{r}
+#visualization 1- jittered scatter plot
+vis_1 <- ggplot(data= telecom_df, mapping = aes(x= months_with_company, y = monthly_charges, color = canceled_service)) + geom_jitter() + facet_wrap(~canceled_service, nrow = 1) + labs(title = "Months with Company vs. Monthly Charges", x= "Months with Company", y = "Monthly Charges")
+vis_1
+```
+
+
+# Question 2
+
+**Question**: Is there a correlation between canceled service and having tech support?
+
+**Answer**: There is a strong correlation between canceled service and not having tech support. About 86% of customers who canceled do not pay for tech support, while 13% of them do pay for tech support. On the other hand, about 58% of customers who stayed do not pay for tech support and 41% of them pay for it. 
+
+```{r}
+tech_sprt <- telecom_df%>%group_by(canceled_service)%>%
+                mutate(tech_support = as.integer(tech_support)) %>% 
+                #yes = 1, no = 2
+                summarise(customers = n(),
+                        yes = length(which(tech_support==1)), 
+                        no = length(which(tech_support==2)), 
+                        perc_1 = mean(tech_support==1),
+                        perc_2 = mean(tech_support==2))
+tech_sprt
+```
+
+```{r}
+#visualization 2 - bar plot
+vis_2 <- ggplot(data = telecom_df, mapping = aes(x= as.integer(tech_support), fill= canceled_service)) + geom_bar() + facet_wrap(~canceled_service, nrow = 1) + labs(title = "Tech Support", x = "Tech Support - Numbered")
+
+vis_2 #shows that most customers, whether they canceled service or not, do not pay for tech support.
+```
+
+# Question 3
+
+**Question**: Is there a correlation between canceled service, a customer being a senior citizen, having a spouse/partner, and dependents? 
+
+**Answer**: There is a weak correlation between canceled service, a customer being a senior citizen, having a spouse/partner, and dependents. About 1% of senior citizens with a spouse/partner and dependents canceled or stayed, 11% with a spouse/partner canceled and about 6% stayed, about 0.2% of senior citizens with dependents canceled and about 0.3% stayed, and about 14% with none left while about 8% stayed. On the other hand, about 14% of non-senior citizens with a spouse/partner and dependents canceled and about 22% stayed, about 9% with a spouse/partner canceled and about 22% stayed, about 5% with dependents canceled and about 4% stayed, and about 46% with none left while about 35% stayed.
+
+```{r}
+#someone can be a senior citizen with a spouse and dependents, just a spouse, just dependents, or none OR someone isn't a senior citizen with a spouse and dependents, just a spouse, just dependents, or none.
+senior <- telecom_df %>% group_by(canceled_service) %>%
+        mutate(senior_citizen = as.integer(senior_citizen),
+               spouse_partner = as.integer(spouse_partner),
+               dependents = as.integer(dependents)) %>%
+        #yes = 1, no = 2
+        summarise(customers = n(),
+        senior = length(which(senior_citizen==1)), 
+        not_senior = length(which(senior_citizen==2)),
+        sp = length(which(spouse_partner==1)),
+        no_sp = length(which(spouse_partner==2)),
+        dep = length(which(dependents==1)),
+        no_dp = length(which(dependents==2)),
+        #senior citizen with a spouse and dependents
+        sc_with_both = mean(senior_citizen==1 & spouse_partner==1 & dependents==1),
+        
+        #with just a spouse
+        sc_with_spouse = mean(senior_citizen==1 & spouse_partner==1 & dependents==2),
+        
+        #with just dependents
+        sc_with_dep = mean(senior_citizen==1 & spouse_partner==2 & dependents==1),
+        
+        #or none
+        sc_with_none = mean(senior_citizen==1 & spouse_partner==2 & dependents==2),
+        
+        #someone isn't a senior citizen with a spouse and dependents
+        nonsc_with_both = mean(senior_citizen==2 & spouse_partner==1 & dependents==1),
+        
+        #with just a spouse
+        nonsc_with_sp = mean(senior_citizen==2 & spouse_partner==1 & dependents==2),
+        
+        #with just dependents
+        nonsc_with_dep = mean(senior_citizen==2 & spouse_partner==2 & dependents==1),
+        
+        #or none
+        nonsc_with_none = mean(senior_citizen==2 & spouse_partner==2 & dependents==2))
+
+senior 
+```
+
+```{r}
+#visualization 3 - histogram
+vis_3 <- ggplot(data = telecom_df, aes(x = as.integer(senior_citizen), fill = canceled_service)) + geom_histogram(color = "white", bins = 10) + facet_wrap(~ canceled_service, nrow = 1) + labs(title = "Senior Citizens", x = "Senior Citizens", y = "Number of Seniors")
+
+vis_3
+```
+
+
+# Question 4
+
+**Question**: Is there a correlation between canceled service, streaming TV, and streaming movies? 
+
+**Answer**: There isn't a strong correlation between canceled service, streaming TV, and streaming movies but these factors do impact service cancellation. About 37% of customers who canceled their services streamed both movies and tv, while about 19% stayed. About 32% of customers who stayed don't stream movies or tv, while 18% of customers who canceled streamed neither. About 23% of customers who stayed only streamed movies (19% canceled) and 27% of customers who stayed only streamed tv (about 25% canceled).
+
+```{r}
+streaming <-telecom_df %>% group_by(canceled_service) %>%
+        mutate(streaming_tv = as.integer(streaming_tv),
+               streaming_movies = as.integer(streaming_movies))%>%
+        #yes = 1, no = 2
+        summarise(customers = n(),
+        tv = length(which(streaming_tv==1)), 
+        no_tv = length(which(streaming_tv==2)),
+        movies = length(which(streaming_movies==1)),
+        no_movies = length(which(streaming_movies==2)),
+  #% of people who stream tv and movies
+        both = mean(streaming_tv==1 & streaming_movies==1),
+  #no tv and no movies
+        none = mean(streaming_tv==2 & streaming_movies==2),
+  #movies and no tv
+        m_no_tv = mean(streaming_movies==1 & streaming_tv==2 ),
+  #tv and no movies
+        tv_no_m = mean(streaming_tv==1 & streaming_movies==2)
+        )
+streaming
+```
+
+```{r}
+#visualization 4 - violin plot
+vis_4 <- ggplot(data= telecom_df, mapping = aes(x= as.integer(streaming_tv), y = as.integer(streaming_movies), color = canceled_service)) + geom_violin() + geom_jitter()+ facet_wrap(~canceled_service, nrow = 1) + labs(title = "Streaming TV vs. Streaming Movies", x ="Streaming TV", y = "Streaming Movies")
+
+vis_4
+```
+
+
+# Question 5
+
+**Question**: Is there a correlation between canceled service and types of internet service?
+
+**Answer**: There is a strong correlation between canceled service and types of internet service, more specifically fiber optic. About 83% of customers who canceled used the fiber optic internet service, while 57% stayed. On the other hand, 17% of customers who canceled used digital and about 43% stayed. 
+
+```{r}
+int_serv <- telecom_df%>%group_by(canceled_service)%>%
+            mutate(internet_service = as.integer(internet_service)) %>% 
+              # fiber_optic = 1, digital = 2
+              summarise(customers = n(),
+                        digital_service = length(which(internet_service==1)), 
+                        fiber_optics = length(which(internet_service==2)),
+                        perc_1 = mean(internet_service==1),
+                        perc_2 = mean(internet_service==2))
+int_serv
+```
+
+```{r}
+#visualization 5 - bar plot
+vis_5 <- ggplot(data= telecom_df, mapping = aes(x= as.integer(internet_service), fill= canceled_service)) + geom_bar() + facet_wrap(~canceled_service, nrow = 1) + labs(title = "Internet Service", x = "Internet Service - Numbered")
+
+vis_5
+```
+
+
+
+# Machine Learning
+
+# Model 1 - logistic regression
+
+```{r}
+#check current ordering of canceled_service 
+levels(telecom_df$canceled_service) #yes comes first!
+
+#splitting the data
+set.seed(345)
+telecom_split <- initial_split(telecom_df, prop = 0.75, 
+                             strata = canceled_service)
+telecom_training <- telecom_split %>% training()
+telecom_test <- telecom_split %>% testing()
+
+#feature engineering
+telecom_recipe <- recipe(canceled_service ~ ., data = telecom_training) %>% 
+                step_YeoJohnson(all_numeric(), -all_outcomes()) %>% 
+                step_normalize(all_numeric(), -all_outcomes()) %>% 
+                step_dummy(all_nominal(), -all_outcomes())
+
+telecom_recipe %>% 
+  prep(training = telecom_training) %>% 
+  bake(new_data = NULL)
+
+#specifying a 'parsnip' model object - logistic regression
+log_model <- logistic_reg() %>% 
+                  set_engine('glm') %>% 
+                  set_mode('classification')
+
+#create a workflow
+tele_wrkflw <- workflow() %>% 
+            add_model(log_model) %>% 
+            add_recipe(telecom_recipe)
+
+#fit the model
+tele_log_fit <- tele_wrkflw %>% 
+                      fit(data = telecom_training)
+
+#variable importance for my information
+tele_trained_model <- tele_log_fit %>% 
+                       pull_workflow_fit()
+vip(tele_trained_model) 
+#avg_call_mins is the most important predictor of canceled service, followed by avg_intl_mins, and months_with_company
+
+###everything needed to do the roc curve and area under the curve
+#predicted categories 
+pred_categories <- predict(tele_log_fit, 
+                                  new_data = telecom_test)
+
+pred_categories
+
+#estimated probabilities
+pred_prob <- predict(tele_log_fit, 
+                                     new_data = telecom_test, 
+                                     type = 'prob')
+
+pred_prob
+
+#combine
+results <- telecom_test %>% select(canceled_service) %>% 
+                bind_cols(pred_categories) %>% 
+                bind_cols(pred_prob)
+
+results
+
+#confusion matrix
+conf_mat(results, 
+         truth = canceled_service, 
+         estimate = .pred_class) #shows 225 correct predictions with about an accuracy of 77% (76.79...; out of 293 rows)
+
+#sensitivity
+sens(results,
+     truth = canceled_service, 
+     estimate = .pred_class) #sensitivity of about 0.60
+
+#specificity
+spec(results,
+     truth = canceled_service, 
+     estimate = .pred_class) #0.86
+
+#ROC Curve (code 6 line 299) and area under the curve on test data
+roc_curve(results, 
+          truth = canceled_service, 
+          estimate = .pred_yes) %>% 
+  autoplot()
+
+roc_auc(results,
+        truth = canceled_service, 
+        .pred_yes) #gives model a B grade - 85%
+
+#f1
+f_meas(results,
+       truth = canceled_service, 
+       estimate = .pred_class) #score of about 0.65
+
+###metric sets
+telecom_metrics <- metric_set(accuracy, sens, spec, f_meas, roc_auc)
+
+telecom_metrics(results, 
+           truth = canceled_service, 
+           estimate = .pred_class,
+           .pred_yes)
+```
+
+
+
+
+
+# Model 2 - LDA
+
+```{r}
+#data splitting completed in the last model
+
+telecom_split 
+telecom_training 
+telecom_test 
+
+#feature engineering done in last model
+telecom_recipe 
+
+telecom_recipe %>% 
+  prep(training = telecom_training) %>% 
+  bake(new_data = NULL)
+
+#LDA model specification
+lda_model <- discrim_regularized(frac_common_cov = 1) %>% 
+             set_engine('klaR') %>% 
+             set_mode('classification')
+
+#create a workflow
+lda_wrk <- workflow() %>% 
+            add_model(lda_model) %>% 
+            add_recipe(telecom_recipe)
+
+#train and evaluate with last_fit()
+lf_lda <- lda_wrk %>% 
+                last_fit(split = telecom_split)
+lf_lda %>% collect_metrics() #roc_auc gives B grade of about 85%, with about 77% accuracy (like model 1...)
+
+#predictions 
+lda_predictions <- lf_lda %>% 
+                     collect_predictions()
+
+lda_predictions
+
+lda_predictions %>% 
+  roc_curve(truth = canceled_service, .pred_yes) %>% 
+  autoplot()
+
+#confusion matrix
+conf_mat(lda_predictions, truth = canceled_service, estimate = .pred_class)
+##shows 227 correct predictions with accuracy of 77% (out of 293 rows)
+
+#f1 
+f_meas(lda_predictions, truth = canceled_service, estimate = .pred_class)
+#0.67
+```
+
+
+# Model 3 - QDA
+
+```{r}
+#model specification
+qda_model <- discrim_regularized(frac_common_cov = 0) %>% 
+             set_engine('klaR') %>% 
+             set_mode('classification')
+
+#workflow
+qda_wrkf <- workflow() %>% 
+          add_model(qda_model) %>% 
+          add_recipe(telecom_recipe)
+
+lf_qda <- qda_wrkf %>% 
+                last_fit(split = telecom_split)
+
+lf_qda %>% collect_metrics()
+#76% accuracy, roc_auc of 85%
+
+#gives estimated probabilities for customers canceling their service
+qda_predictions <- lf_qda %>% 
+                     collect_predictions()
+qda_predictions
+
+#graphs that ^ 
+qda_predictions %>% 
+  roc_curve(truth = canceled_service, .pred_yes) %>% 
+  autoplot()
+
+conf_mat(qda_predictions, truth = canceled_service, estimate = .pred_class)
+```
+
+
+
+
+# Summary of Results
+
+**Summary**
+Recently,  I was approached by Company V, a U.S. telecommunications company, to review their most recent customer data and observe why their customers are canceling services. This problem has put Company V in a place where they are suffering from financial losses. This problem can also put Company V at risk for losing even more customers and being labeled as a terrible telecommunications company. Solving this problem truly allows Company V to better understand their customers and improve all-around as a service provider.  At the time of my analysis, 427 out of 1,175 customers canceled service with Company V. The goal of my analysis was to help Company V figure out ways to keep their current customers and predict if a customer will cancel their service in the future to minimize financial losses.
+
+To help Company V figure out why they are losing customers, I formed a total of five questions to test the correlation between canceled service, months with company and monthly charges, tech support, a customer being a senior citizen or not with/without a spouse/partner and dependents, streaming TV, streaming movies, and types of internet service. In order to form these questions, I asked myself what would make me want to cancel services provided by a telecommunications company like Company V. Observing how long a customers has been with a telecommunications company speaks to customer loyalty, and even how much they're willing to pay for a good and reliable service. Understanding how good a company's tech support is (and even if it costs extra) is a big factor for a lot of customers. Having good tech support is great for people like senior citizens and when a customer has problems with their services in general. Understanding the age and marital demographics of your customers is very important as far as knowing what type of service plans to offer them, and find ways to ensure they don't cancel services. Knowing whether or not if a customer streams tv, movies, or neither, and their type of internet service is also important to developing service plans for customers. Giving your customers options (good options at that) keeps them happy.
+
+When testing the correlation between canceled service, months with company, and monthly charges, I found it interesting that a higher percentage of customers who canceled only used the service for 18 months or less and paid \$82 or less. It made me wonder what truly drove away these customers, especially if they weren't paying more than $82 (which is less than the average monthly cost of about \$118 for all customers). I also found it interesting that a higher percentage of customers who stayed and have used the service for 39 months or more pay \$82 or more each month. This truly speaks to customer loyalty. When testing the correlation between canceled service and having tech support, I was surprised to see that a higher percentage of customers who canceled do not pay for tech support. It made me question whether or not the tech support is reliable, if it costs too much, or if customers genuinely don't care for it. It is important to know why most people do not utilize the tech support services. Being someone who can't afford tech support, and because I know how to use Google, I don't see the need to pay for tech support. 
+
+When testing the correlation between canceled service, a customer being a senior citizen, having a spouse/partner, and dependents, I was really surprised to see that there was a weak correlation between these categories. I was also surprised to see that a higher percentage of non-senior citizens without a spouse/partner or dependents canceled services than senior citizens in that category. When testing the correlation between canceled service, streaming TV, and streaming movies, I was surprised that such a low percentage of  customers who canceled stream tv and movies (37% ). This is an important factor for a company to know as far as charging their customers for streaming goes. When testing the correlation between canceled service and types of internet service, I was surprised that less people use the digital internet service than they do the fiber optic service. Knowing the number of people that are satisfied or dissatisfied with the type of internet service they use is important for Company V to know. That way, they can work on improving the quality of internet service, or allow customers to use both fiber optic and digital internet (e.g. Verizon Fios).
+ 
+In order to predict the chances of customers canceling their use of services with Company, I ran three classification algorithms - logistic regression (Model 1), linear discriminant analysis (Model 2), and quadratic discriminant analysis (Model 3). I found Model 2 to be the best classification model. When observing each model's confusion matrix, I saw that Model 1 correctly predicted 225 cancellations (accuracy of about 77%), Model 2 correctly predicted 227 (accuracy of about 77%), and Model 3 correctly predicted 224 (accuracy of about 76%). Model 2 most accurately predicted customer cancellations. Although the predictions are not that far off, any number makes a difference. When observing each model's ROC curve, they weren't that far off from one another, but Model 2 seemed to have a curve closest to the point (0,1), which further proves that it is the best classification model. The area under the ROC curve and the accuracy of the models didn't really help me to draw this conclusion like observing the confusion matrix and the ROC curve did. Each model's area under the ROC curve values all rounded to about 0.85, while Model 1 and 2 both have an accuracy of about 77% (76% for Model 3). While Model 1 had the highest area under the curve (0.8491575	when not rounded), it did not outperform Model 2 with regard to accuracy (0.7747440 vs. 0.7679181 when not rounded).
+
+Now that my analysis is complete, I have several recommendations for Company V. According to the months_wplus_cost data frame, I saw that about 41% of customers who canceled used Company V's service for 18 months or less and paid \$82 or less, while 36% of customers who stayed have used the service for 39 months or more and paid \$82 or more.  The vis_1 jitter plot further supports my observations and shows that most customers who canceled used services for 20 months or less and paid between \$70-\$100. It also shows that customers who stayed truly vary based on their months with Company V and their monthly charges. Most who stayed have been with the company for over 60 months and pay between \$60-\$120.
+The next steps would be to consider why customers who haven't used the company's service for long and don't pay a lot of money leave, by looking at other factors along with months_with_company. Company V should consider if there are other companies that offer "better" plans/services to those who haven't been with the company that long, or if it all maybe have to deal with customer contracts. This will help the company to minimize financial loss due to cancellations. Company V should also offer incentives (like discounted or free services for a limited time) to customers who have used their services for 39 months or more and paid \$82 or more; this will better customer relationships and potentially attract more customers. In the tech_sprt data frame, I saw that about 86% of customers who canceled do not pay for tech support, while 13% of them do pay for tech support. On the other hand, about 58% of customers who stayed do not pay for tech support and 41% of them do pay for it. The vis_2 bar plot further supports the aforementioned observations - most customers, whether they canceled service or not, do not pay for tech support. There's a possibility some don't have tech support due to its potentially high price (e.g. Apple Care), its reliability, or lack of need or interest. I recommend that Company V assess the tech support they offer to get a better understanding why most of their customers don't even use it. 
+
+Although I saw a weak correlation between canceled service, a customer being a senior citizen, having a spouse/partner, and dependents in the senior data frame, the higher percents showed up in the non-senior citizen categories (being that they exist at a higher number than senior citizens). About 1% of senior citizens with a spouse/partner and dependents canceled or stayed; 11% with a spouse/partner canceled and about 6% stayed; about 0.2% with dependents canceled and about 0.3% stayed; about 14% with none left while about 8% stayed. On the other hand, about 14% of non-senior citizens with a spouse/partner and dependents canceled and about 22% stayed; about 9% with a spouse/partner canceled and about 22% stayed; about 5% with dependents canceled and about 4% stayed; and about 46% with none left while about 35% stayed.Because the numbers are kind of everywhere, I recommend that Company V work on appealing more to senior citizens and non-senior citizens in general. Company V needs to work on tailoring their services to being more senior citizen friendly, and appealing more to non-senior citizens who have neither a spouse/partner nor dependents.
+
+When I observed the streaming data frame, I saw that there isn't a strong correlation between canceled service, streaming TV, and streaming movies, but saw that these factors do impact service cancellation. About 37% of customers who canceled their services streamed both movies and TV, while about 19% stayed. About 32% of customers who stayed don't stream movies or TV, while 18% of customers who canceled. About 23% of customers who stayed only streamed movies (19% canceled) and 27% of customers who stayed only streamed TV (about 25% canceled). To be clear, everyone doesn't necessarily want to pay full prices for services they do not use (e.g. Company V customers who don't stream movies or TV). I recommend that Company V review their streaming packages. There is a chance customers are leaving because they have to pay for streaming TV and movies and it costs too much, or they aren't streaming at all. Customers may prefer to stream either or, but they shouldn't have to pay to stream if they don't want to. I also recommend that Company V offer optional streaming bundles with appropriate rates that allow customers to pay to stream movies, TV, or both. To further understand their customers' streaming habits, Company V should send out surveys to get a good idea of what their customers like/are watching; having a poor choice of shows and movies to stream may drive a customer away from the company too.
+
+In the int_serv data frame, I observed that there is a strong correlation between canceled service and types of internet service, more specifically fiber optic. About 83% of customers who canceled used the fiber optic internet service, while 57% stayed. On the other hand, 17% of customers who canceled used digital and about 43% stayed. I assume that the digital internet service is wireless/WiFi unlike fiber optic networks which aren't wireless and typically underground. I recommend that Company V consider the locations of their customers to fully understand what causes the high percentage of fiber optic service user cancellations. If a customer lives in an area with bad service or consistent bad weather, it may mess with their digital service and even the fiber optic service (e.g. erosion, landslides, etc.). I also recommend that they offer packages where customers can have both fiber optic and digital services.
