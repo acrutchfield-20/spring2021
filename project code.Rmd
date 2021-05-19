@@ -1,0 +1,191 @@
+---
+title: "SYST Proj data"
+author: "Ayana Crutchfield"
+date: "4/24/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+loansdf <- readRDS(url('https://gmubusinessanalytics.netlify.app/data/loan_data.rds'))
+
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(tidymodels)
+
+loansdf
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r}
+#count of applicants
+applicant_count <- loansdf %>% group_by(loan_default)%>%
+              summarise(applicants = n())
+
+applicant_count #1530 default, 2580 dont
+
+
+
+```
+
+```{r}
+#linear regression on loansdf - do like ml project with stepyeo etc. ROC/AUC
+set.seed(314)
+loansdf$loan_default<- as.numeric(loansdf$loan_default) 
+#model only worked with loan_default not being a factor. could something else work?
+#1 = yes 2=no
+
+# split, training, test
+loan_split <- initial_split(loansdf, prop = 0.75, 
+                                   strata = loan_default)
+
+loan_training <- loan_split %>% 
+                        training()
+
+loan_test <- loan_split %>% 
+                    testing()
+
+
+#feature engineering
+loan_recipe <- recipe(loan_default ~ ., data = loan_training) %>% 
+                      step_YeoJohnson(all_numeric(), -all_outcomes()) %>% 
+                      step_normalize(all_numeric(), -all_outcomes())
+
+
+
+#model specification
+lm_model <- linear_reg() %>% 
+            set_engine('lm') %>% # adds lm implementation of linear regression
+            set_mode('regression')
+
+# View object properties
+lm_model
+
+
+#workflow
+loan_workflow <- workflow() %>% 
+                        add_model(lm_model) %>% 
+                        add_recipe(loan_recipe)
+#executing workflow
+loan_fit <- loan_workflow %>% 
+                   last_fit(split = loan_split)
+
+
+
+#fitting to training data
+lm_fit <- lm_model %>% 
+          fit(loan_default ~ ., data = loan_training)
+
+# View lm_fit properties
+lm_fit
+
+str(loansdf$loan_default)
+```
+
+```{r}
+#exploring results 
+names(lm_fit)
+lm_fit %>% 
+  # Extract fit element from the list
+  pluck('fit') %>% 
+  # Pass to summary function
+  summary()
+
+#par(mfrow=c(2,2)) # plots all 4 plots in one
+
+par(mfrow=c(1,1))
+
+lm_fit %>% 
+  pluck('fit') %>% 
+  plot(pch = 16,    # optional parameters to make points blue
+       col = '#006EA1')
+
+
+#try to find a way to zoom out or just plot one aet a time 
+
+
+
+
+
+```
+
+```{r}
+# Data frame of estimated coefficients
+tidy(lm_fit)
+
+# Performance metrics on training data
+glance(lm_fit)
+
+#variable importance
+library(vip)
+vip(lm_fit) #interest_rate, termfive_year, installment, loan_amount
+```
+
+```{r}
+#evaulating test set accuracy
+predict(lm_fit, new_data = loan_test)
+
+loan_test_results <- predict(lm_fit, new_data = loan_test) %>% 
+                            bind_cols(loan_test)
+
+# View results
+loan_test_results
+
+#run things to test predicted values
+default_test<- loan_test_results%>%group_by(loan_default)%>%
+            summarise(applicants = n(),
+                      max_ir = max(interest_rate),
+                      min_ir = min(interest_rate),  #ppl who didn't default tended to have a lower interest rate in test set                 
+                      avg_ir = mean(interest_rate),
+                    i_r = mean(interest_rate >= 9 & interest_rate <= 16) #% of ppl w average interest rate
+                    #about 57% of people who had within the average range of interest rates defaulted while about 52% didn't default
+                      )
+default_test
+```
+
+```{r}
+# RMSE on test set
+rmse(loan_test_results, 
+     truth = loan_default,
+     estimate = .pred) #0.29 indicates good fit 
+
+# R2 on test set
+rsq(loan_test_results,
+    truth = loan_default,
+    estimate = .pred)
+
+#R2 plot
+ggplot(data = loan_test_results,
+       mapping = aes(x = .pred, y = loan_default)) +
+  geom_point(alpha = 0.4) +
+  geom_abline(intercept = 0, slope = 1, linetype = 2, color = 'red') +
+  coord_obs_pred() +
+  labs(title = 'Linear Regression Results - Loan Data Test Set',
+       x = 'Predicted loan_default',
+       y = 'Actual loan_default') +
+  theme_light()
+
+
+```
+
+```{r}
+
+```
+
+
+
+```{r}
+#multiple lr
+
+
+```
+
